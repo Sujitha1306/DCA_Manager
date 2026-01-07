@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { ShieldCheck, ArrowRight, Loader2 } from 'lucide-react';
+import { ShieldCheck, ArrowRight, Loader2, Users } from 'lucide-react';
 import { clsx } from 'clsx';
 
 export default function Login() {
@@ -91,7 +91,7 @@ export default function Login() {
                         >
                             <div className="flex items-center space-x-4">
                                 <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
-                                    <users size={20} />
+                                    <Users size={20} />
                                 </div>
                                 <div className="text-left">
                                     <h3 className="font-semibold text-slate-900 group-hover:text-indigo-700 transition-colors">Agency Portal</h3>
