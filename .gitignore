@@ -88,4 +88,7 @@ temp/
 .DS_Store
 
 # Firebase
-.firebase/
+
+# Secrets
+functions/.env
+Fire_base_file/*.json

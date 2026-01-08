@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Sparkles, MessageSquare, Copy, CheckCheck, AlertCircle } from 'lucide-react';
-import { httpsCallable } from 'firebase/functions';
-import { functions } from '../lib/firebase';
+import { API_BASE_URL } from '../api/config';
 
 const AiCoachWidget = ({ caseData, historyNotes }) => {
      const [isOpen, setIsOpen] = useState(false);
@@ -16,9 +15,20 @@ const AiCoachWidget = ({ caseData, historyNotes }) => {
           setIsOpen(true);
 
           try {
-               const generate = httpsCallable(functions, 'generateNegotiationStrategy');
-               const result = await generate({ caseData, historyNotes });
-               setAiData(result.data);
+               const response = await fetch(`${API_BASE_URL}/api/negotiate`, {
+                    method: 'POST',
+                    headers: {
+                         'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ caseData, historyNotes })
+               });
+
+               if (!response.ok) {
+                    throw new Error('Failed to generate strategy');
+               }
+
+               const data = await response.json();
+               setAiData(data);
           } catch (err) {
                console.error("AI Error:", err);
                // Disable fallback to debug the underlying connection issue

@@ -4,10 +4,7 @@ import DataTable from '../components/DataTable';
 import AllocationModal from '../components/AllocationModal';
 import { Filter, Users, Download, SlidersHorizontal, Bot, CheckCircle, Loader2 } from 'lucide-react';
 import { clsx } from "clsx";
-import { functions } from '../lib/firebase';
-import { httpsCallable } from 'firebase/functions';
-import { useAuth } from '../context/AuthContext'; // Assuming AuthContext exists
-import { calculateSlaRisk } from '../utils/riskModel';
+import { API_BASE_URL } from '../api/config';
 
 export default function CasePool() {
     const { cases, updateCases } = useCases();
@@ -46,10 +43,14 @@ export default function CasePool() {
         }, 200);
 
         try {
-            const autoAllocate = httpsCallable(functions, 'autoAllocateTasks');
+            const response = await fetch(`${API_BASE_URL}/api/allocate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
 
-            const result = await autoAllocate();
-            const data = result.data;
+            if (!response.ok) throw new Error('Allocation failed');
+
+            const data = await response.json();
 
             clearInterval(interval);
             setAllocationProgress(100);

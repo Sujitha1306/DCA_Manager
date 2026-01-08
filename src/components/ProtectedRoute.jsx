@@ -10,6 +10,11 @@ export default function ProtectedRoute({ allowedRoles }) {
         return <Navigate to="/login" replace />;
     }
 
+    // Check for pending status
+    if (user.status === 'pending') {
+        return <Navigate to="/pending" replace />;
+    }
+
     if (allowedRoles && !allowedRoles.includes(user.role)) {
         // If user is logged in but doesn't have the right role, 
         // maybe redirect to a specialized unauthorized page, 
