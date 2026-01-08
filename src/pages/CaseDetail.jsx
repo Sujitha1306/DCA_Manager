@@ -7,6 +7,7 @@ import Badge from '../components/Badge';
 import { clsx } from 'clsx';
 import { CASE_STATUS } from '../types/schema';
 import { calculateRecoveryScore, getAiRecommendation } from '../utils/aiLogic';
+import AiCoachWidget from '../components/AiCoachWidget';
 
 export default function CaseDetail() {
     const { id } = useParams();
@@ -316,6 +317,15 @@ export default function CaseDetail() {
                         </div>
                     </div>
                 </div>
+                {/* AI Coach Widget - Floating */}
+                <AiCoachWidget
+                    caseData={{
+                        amount: currentCase.amount,
+                        daysOverdue: currentCase.daysOverdue,
+                        riskScore: aiInsight?.score || 50
+                    }}
+                    historyNotes={currentCase.notes || []}
+                />
             </div>
         </div>
     );

@@ -9,6 +9,8 @@ import CasePool from './pages/CasePool';
 import Worklist from './pages/Worklist';
 import CaseDetail from './pages/CaseDetail';
 
+import AnalyticsDashboard from './pages/AnalyticsDashboard';
+
 function App() {
     return (
         <BrowserRouter>
@@ -24,7 +26,7 @@ function App() {
                                 <Route path="/cases" element={<CasePool />} />
                                 <Route path="/cases/:id" element={<CaseDetail />} />
                                 <Route path="/worklist" element={<Worklist />} />
-                                <Route path="/analytics" element={<div className="p-6 text-slate-500">Analytics Dashboard (Coming Phase 5)</div>} />
+                                <Route path="/analytics" element={<AnalyticsDashboard />} />
                             </Route>
                         </Route>
 

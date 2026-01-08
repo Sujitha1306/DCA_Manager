@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { ChevronDown, ArrowUpDown, Filter, Search } from 'lucide-react';
+import { ChevronDown, ArrowUpDown, Filter, Search, AlertTriangle } from 'lucide-react';
 import Badge from './Badge';
 import { clsx } from "clsx";
+import { calculateSlaRisk } from '../utils/riskModel';
 
 export default function DataTable({ data, onSelectionChange, onRowClick }) {
     const [selectedIds, setSelectedIds] = useState(new Set());
@@ -79,52 +80,63 @@ export default function DataTable({ data, onSelectionChange, onRowClick }) {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                        {sortedData.map((row) => (
-                            <tr
-                                key={row.id}
-                                onClick={() => onRowClick && onRowClick(row.id)}
-                                className={clsx(
-                                    "hover:bg-slate-50 transition-colors cursor-pointer",
-                                    selectedIds.has(row.id) ? "bg-blue-50/50" : ""
-                                )}
-                            >
-                                <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                                    <input
-                                        type="checkbox"
-                                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                                        checked={selectedIds.has(row.id)}
-                                        onChange={() => toggleSelectRow(row.id)}
-                                    />
-                                </td>
-                                <td className="px-4 py-3 font-medium text-slate-900">{row.customerName}</td>
-                                <td className="px-4 py-3 text-slate-700 font-mono">${row.amount.toLocaleString()}</td>
-                                <td className="px-4 py-3 text-slate-700">{row.daysOverdue}d</td>
-                                <td className="px-4 py-3">
-                                    <div className="flex items-center space-x-2">
-                                        <div className="w-16 h-2 bg-slate-200 rounded-full overflow-hidden">
-                                            <div
-                                                className={clsx("h-full rounded-full", row.riskScore > 70 ? 'bg-emerald-500' : row.riskScore > 40 ? 'bg-yellow-500' : 'bg-red-500')}
-                                                style={{ width: `${row.riskScore}%` }}
-                                            />
-                                        </div>
-                                        <span className="text-xs text-slate-500">{row.riskScore}</span>
-                                    </div>
-                                </td>
-                                <td className="px-4 py-3">
-                                    <Badge variant={row.status}>{row.status}</Badge>
-                                </td>
-                                <td className="px-4 py-3">
-                                    {row.assignedAgency !== 'Unassigned' ? (
-                                        <div className="flex items-center space-x-2">
-                                            <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                                            <span className="text-slate-700">{row.assignedAgency}</span>
-                                        </div>
-                                    ) : (
-                                        <span className="text-slate-400 italic">Unassigned</span>
+                        {sortedData.map((row) => {
+                            const isHighRisk = calculateSlaRisk(row);
+                            return (
+                                <tr
+                                    key={row.id}
+                                    onClick={() => onRowClick && onRowClick(row.id)}
+                                    className={clsx(
+                                        "hover:bg-slate-50 transition-colors cursor-pointer",
+                                        selectedIds.has(row.id) ? "bg-blue-50/50" : ""
                                     )}
-                                </td>
-                            </tr>
-                        ))}
+                                >
+                                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                                        <input
+                                            type="checkbox"
+                                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                            checked={selectedIds.has(row.id)}
+                                            onChange={() => toggleSelectRow(row.id)}
+                                        />
+                                    </td>
+                                    <td className="px-4 py-3 font-medium text-slate-900">{row.customerName}</td>
+                                    <td className="px-4 py-3 text-slate-700 font-mono">${row.amount.toLocaleString()}</td>
+                                    <td className="px-4 py-3 text-slate-700">{row.daysOverdue}d</td>
+                                    <td className="px-4 py-3">
+                                        <div className="flex items-center space-x-2">
+                                            <div className="w-16 h-2 bg-slate-200 rounded-full overflow-hidden">
+                                                <div
+                                                    className={clsx("h-full rounded-full", row.riskScore > 70 ? 'bg-emerald-500' : row.riskScore > 40 ? 'bg-yellow-500' : 'bg-red-500')}
+                                                    style={{ width: `${row.riskScore}%` }}
+                                                />
+                                            </div>
+                                            <span className="text-xs text-slate-500">{row.riskScore}</span>
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <div className="flex items-center space-x-2">
+                                            <Badge variant={row.status}>{row.status}</Badge>
+                                            {isHighRisk && (
+                                                <span className="flex items-center space-x-1 px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200 animate-pulse">
+                                                    <AlertTriangle size={12} />
+                                                    <span className="text-[10px] font-bold uppercase tracking-wide">SLA Risk</span>
+                                                </span>
+                                            )}
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        {row.assignedAgency !== 'Unassigned' ? (
+                                            <div className="flex items-center space-x-2">
+                                                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                                <span className="text-slate-700">{row.assignedAgency}</span>
+                                            </div>
+                                        ) : (
+                                            <span className="text-slate-400 italic">Unassigned</span>
+                                        )}
+                                    </td>
+                                </tr>
+                            );
+                        })}
 
                         {data.length === 0 && (
                             <tr>
