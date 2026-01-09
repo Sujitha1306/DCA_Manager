@@ -8,11 +8,21 @@ export default function Login() {
     const { login } = useAuth();
     const navigate = useNavigate();
     const [loadingRole, setLoadingRole] = useState(null);
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState(null);
 
-    const handleLogin = async (role) => {
-        setLoadingRole(role);
-        await login(role);
-        navigate('/');
+    const handleLogin = async () => {
+        setLoadingRole('processing');
+        setError(null);
+        try {
+            await login(email, password);
+            navigate('/');
+        } catch (err) {
+            console.error(err);
+            setError("Invalid email or password.");
+            setLoadingRole(null);
+        }
     };
 
     return (
@@ -56,51 +66,39 @@ export default function Login() {
                         <p className="mt-2 text-slate-500">Please select your portal to continue.</p>
                     </div>
 
-                    <div className="space-y-4 mt-8">
-                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Select Access Role</p>
+                    <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }} className="space-y-4 mt-8">
+                        <div>
+                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Email Address</label>
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                placeholder="name@company.com"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Password</label>
+                            <input
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                placeholder="••••••••"
+                                required
+                            />
+                        </div>
 
                         <button
-                            onClick={() => handleLogin('admin')}
+                            type="submit"
                             disabled={loadingRole !== null}
-                            className={clsx(
-                                "group relative w-full flex items-center justify-between p-4 border-2 rounded-xl transition-all duration-200 outline-none",
-                                "hover:border-blue-600 hover:shadow-lg hover:shadow-blue-500/10 hover:bg-slate-50",
-                                loadingRole === 'admin' ? "border-blue-600 bg-slate-50" : "border-slate-100"
-                            )}
+                            className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 transition-all flex items-center justify-center space-x-2 disabled:opacity-70 disabled:cursor-not-allowed"
                         >
-                            <div className="flex items-center space-x-4">
-                                <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
-                                    <ShieldCheck size={20} />
-                                </div>
-                                <div className="text-left">
-                                    <h3 className="font-semibold text-slate-900 group-hover:text-blue-700 transition-colors">Enterprise Admin</h3>
-                                    <p className="text-xs text-slate-500">For Managers & Allocators</p>
-                                </div>
-                            </div>
-                            {loadingRole === 'admin' ? <Loader2 className="animate-spin text-blue-600" /> : <ArrowRight className="text-slate-300 group-hover:text-blue-600 transition-colors" />}
+                            {loadingRole ? <Loader2 className="animate-spin" /> : <ShieldCheck size={20} />}
+                            <span>Sign In to Portal</span>
                         </button>
-
-                        <button
-                            onClick={() => handleLogin('agency')}
-                            disabled={loadingRole !== null}
-                            className={clsx(
-                                "group relative w-full flex items-center justify-between p-4 border-2 rounded-xl transition-all duration-200 outline-none",
-                                "hover:border-indigo-600 hover:shadow-lg hover:shadow-indigo-500/10 hover:bg-slate-50",
-                                loadingRole === 'agency' ? "border-indigo-600 bg-slate-50" : "border-slate-100"
-                            )}
-                        >
-                            <div className="flex items-center space-x-4">
-                                <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
-                                    <Users size={20} />
-                                </div>
-                                <div className="text-left">
-                                    <h3 className="font-semibold text-slate-900 group-hover:text-indigo-700 transition-colors">Agency Portal</h3>
-                                    <p className="text-xs text-slate-500">For Collection Agents</p>
-                                </div>
-                            </div>
-                            {loadingRole === 'agency' ? <Loader2 className="animate-spin text-indigo-600" /> : <ArrowRight className="text-slate-300 group-hover:text-indigo-600 transition-colors" />}
-                        </button>
-                    </div>
+                    </form>
 
                     <div className="text-center pt-8">
                         <p className="text-xs text-slate-400">

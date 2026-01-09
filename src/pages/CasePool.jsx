@@ -3,12 +3,13 @@ import { useCases } from '../context/CaseContext';
 import DataTable from '../components/DataTable';
 import AllocationModal from '../components/AllocationModal';
 import AddCaseModal from '../components/AddCaseModal';
-import { Filter, Users, Download, SlidersHorizontal, Bot, CheckCircle, Loader2, Plus } from 'lucide-react';
+import { Filter, Users, Download, SlidersHorizontal, Bot, CheckCircle, Loader2, Plus, Trash2 } from 'lucide-react';
 import { clsx } from "clsx";
 import { API_BASE_URL } from '../api/config';
+import { calculateSlaRisk } from '../utils/riskModel';
 
 export default function CasePool() {
-    const { cases, updateCases } = useCases();
+    const { cases, updateCases, deleteCases } = useCases();
     const [selectedIds, setSelectedIds] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -109,13 +110,27 @@ export default function CasePool() {
                     </button>
 
                     {selectedIds.length > 0 && (
-                        <button
-                            onClick={() => setIsModalOpen(true)}
-                            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors animate-fade-in"
-                        >
-                            <Users size={18} />
-                            <span>Assign ({selectedIds.length})</span>
-                        </button>
+                        <>
+                            <button
+                                onClick={async () => {
+                                    if (confirm(`Delete ${selectedIds.length} cases?`)) {
+                                        await deleteCases(selectedIds);
+                                        setSelectedIds([]);
+                                    }
+                                }}
+                                className="flex items-center space-x-2 px-4 py-2 border border-red-200 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                            >
+                                <Trash2 size={18} />
+                                <span>Delete ({selectedIds.length})</span>
+                            </button>
+                            <button
+                                onClick={() => setIsModalOpen(true)}
+                                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors animate-fade-in"
+                            >
+                                <Users size={18} />
+                                <span>Assign ({selectedIds.length})</span>
+                            </button>
+                        </>
                     )}
                 </div>
             </div>

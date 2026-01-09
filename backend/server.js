@@ -145,16 +145,35 @@ app.post('/api/allocate', async (req, res) => {
         // Merge stats into agents array
         agents = agents.map(agent => {
             const stats = agentStats[agent.uid] || { total: 0, paid: 0, active: 0 };
-            const successRate = stats.total > 0 ? (stats.paid / stats.total) : 0.5; // Default 0.5 for new agents
+
+            // 1. Recovery Rate (Weight: 40%)
+            const successRate = stats.total > 0 ? (stats.paid / stats.total) : 0;
+
+            // 2. Speed Factor (Weight: 30%) - MOCK for now
+            // In a real system, we'd average (PaidDate - AssignedDate)
+            // Let's assume a random speed factor for demo variation, or based on 'active' load (lower load = faster?)
+            const speedFactor = 0.7 + (Math.random() * 0.3);
+
+            // 3. Difficulty Handling (Weight: 30%) - MOCK
+            // Would come from average risk score of resolved cases.
+            const difficultyFactor = 0.6 + (Math.random() * 0.4);
+
+            // New Agent Boost: If total cases < 5, force high score to give them a chance.
+            const isNewAgent = stats.total < 5;
+
+            // Score Calculation
+            let finalScore = isNewAgent
+                ? 0.85 // Start high for new agents
+                : (successRate * 0.4) + (speedFactor * 0.3) + (difficultyFactor * 0.3);
+
+            // Cap at 0.99
+            finalScore = Math.min(0.99, finalScore);
+
             return {
                 ...agent,
                 currentLoad: stats.active,
                 successRate,
-                // AI Score Formula: Success Rate (70%) + Inverse Load (30%)
-                // We want high success and low load.
-                // Normalized Load: Assuming max reasonable load is 20. 
-                // loadFactor = 1 - (load / 20). If load > 20, factor is 0.
-                score: (successRate * 0.7) + (Math.max(0, 1 - (stats.active / 20)) * 0.3)
+                score: finalScore
             };
         });
 

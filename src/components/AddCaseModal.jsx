@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { X, Plus, Trash2, Upload, FileSpreadsheet, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { clsx } from "clsx";
 import { useCases } from '../context/CaseContext';
-import * as Papa from 'papaparse'; // We need to install papaparse for CSV
+import * as Papa from 'papaparse';
+import { calculateRiskScore } from '../utils/aiScoring';
 
 export default function AddCaseModal({ isOpen, onClose }) {
     const { addCases } = useCases();
@@ -55,7 +56,10 @@ export default function AddCaseModal({ isOpen, onClose }) {
                             customerName: d.customerName || d['Customer Name'] || 'Unknown',
                             amount: d.amount || d['Amount'] || 0,
                             phone: d.phone || d['Phone'] || '',
-                            email: d.email || d['Email'] || ''
+                            email: d.email || d['Email'] || '',
+                            // Optional advanced fields for testing
+                            // Optional advanced fields for testing
+                            daysOverdue: parseInt(d.daysOverdue || d['Days Overdue'] || 0)
                         }));
                         setParsedData(validData);
                     }
@@ -79,7 +83,8 @@ export default function AddCaseModal({ isOpen, onClose }) {
                     amount: parseFloat(r.amount),
                     status: 'New',
                     assignedAgency: 'Unassigned',
-                    riskScore: Math.floor(Math.random() * 100), // Placeholder risk
+                    daysOverdue: r.daysOverdue ? parseInt(r.daysOverdue) : 0,
+                    riskScore: calculateRiskScore(parseFloat(r.amount), r.daysOverdue ? parseInt(r.daysOverdue) : 0),
                     notes: []
                 }));
             } else {
@@ -88,7 +93,8 @@ export default function AddCaseModal({ isOpen, onClose }) {
                     amount: parseFloat(r.amount),
                     status: 'New',
                     assignedAgency: 'Unassigned',
-                    riskScore: Math.floor(Math.random() * 100),
+                    daysOverdue: r.daysOverdue || 0,
+                    riskScore: calculateRiskScore(parseFloat(r.amount), r.daysOverdue || 0),
                     notes: []
                 }));
             }

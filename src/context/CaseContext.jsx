@@ -100,8 +100,22 @@ export const CaseProvider = ({ children }) => {
         });
     };
 
+    const deleteCases = async (caseIds) => {
+        try {
+            const batch = writeBatch(db);
+            caseIds.forEach(id => {
+                const docRef = doc(db, 'cases', id);
+                batch.delete(docRef);
+            });
+            await batch.commit();
+        } catch (error) {
+            console.error("Error deleting cases:", error);
+            throw error;
+        }
+    };
+
     return (
-        <CaseContext.Provider value={{ cases, loading, updateCases, addCases, addCaseNote }}>
+        <CaseContext.Provider value={{ cases, loading, updateCases, addCases, addCaseNote, deleteCases }}>
             {children}
         </CaseContext.Provider>
     );

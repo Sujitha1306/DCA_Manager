@@ -67,7 +67,7 @@ export default function AnalyticsDashboard() {
                               <span className="text-xs font-medium px-2 py-1 bg-slate-100 text-slate-600 rounded">Area Chart</span>
                          </div>
 
-                         <div className="h-[300px] w-full">
+                         <div className="h-[300px] w-full min-h-[300px]">
                               <ResponsiveContainer width="100%" height="100%">
                                    <AreaChart data={volumeForecast} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                         <defs>
@@ -131,7 +131,7 @@ export default function AnalyticsDashboard() {
                               </div>
                          </div>
 
-                         <div className="h-[300px] w-full">
+                         <div className="h-[300px] w-full min-h-[300px]">
                               <ResponsiveContainer width="100%" height="100%">
                                    <BarChart data={agentRisk} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} layout="vertical">
                                         <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#E2E8F0" />

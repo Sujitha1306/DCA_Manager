@@ -1,0 +1,7 @@
+Customer Name,Amount,Phone,Email,Days Overdue,Risk Score
+"Mega Corp (Best Case)",500.00,555-0101,finance@megacorp.com,5,10
+"John Smith (Good)",1200.50,555-0102,john.smith@email.com,15,25
+"Jane Doe (Average)",3500.00,555-0103,jane.doe@email.com,45,50
+"Tech Startups Inc (Risky)",8000.00,555-0104,admin@startup.io,90,75
+"Global Logistics (Very Bad)",25000.00,555-0105,acc_payable@globallogistics.com,120,85
+"Zombie LLC (Worst Case)",50000.00,555-6666,noreply@zombie.com,365,99

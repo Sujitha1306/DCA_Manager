@@ -1,14 +1,45 @@
-import { useState } from 'react';
-import { X, Check } from 'lucide-react';
-import { useCases } from '../context/CaseContext';
+import { useState, useEffect } from 'react';
+import { X, Check, Loader2 } from 'lucide-react';
+import { db } from '../lib/firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 export default function AllocationModal({ isOpen, onClose, selectedCount, onConfirm }) {
-    const [selectedAgency, setSelectedAgency] = useState('Agency A');
+    const [agents, setAgents] = useState([]);
+    const [selectedAgency, setSelectedAgency] = useState('');
     const [loading, setLoading] = useState(false);
+    const [fetchingAgents, setFetchingAgents] = useState(true);
+
+    useEffect(() => {
+        if (isOpen) {
+            fetchActiveAgents();
+        }
+    }, [isOpen]);
+
+    const fetchActiveAgents = async () => {
+        setFetchingAgents(true);
+        try {
+            const q = query(collection(db, 'users'), where('role', '==', 'agent'), where('status', '==', 'active'));
+            const querySnapshot = await getDocs(q);
+            const activeAgents = querySnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            setAgents(activeAgents);
+            // Default select first one
+            if (activeAgents.length > 0) {
+                setSelectedAgency(activeAgents[0].agencyName);
+            }
+        } catch (error) {
+            console.error("Error fetching agents:", error);
+        } finally {
+            setFetchingAgents(false);
+        }
+    };
 
     if (!isOpen) return null;
 
     const handleConfirm = async () => {
+        if (!selectedAgency) return;
         setLoading(true);
         await onConfirm(selectedAgency);
         setLoading(false);
@@ -31,14 +62,28 @@ export default function AllocationModal({ isOpen, onClose, selectedCount, onConf
 
                 <div className="space-y-2 mb-6">
                     <label className="text-xs font-semibold text-slate-500 uppercase">Select Agency</label>
-                    <select
-                        value={selectedAgency}
-                        onChange={(e) => setSelectedAgency(e.target.value)}
-                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                        <option value="Agency A">Agency A (Premium Collectors)</option>
-                        <option value="Agency B">Agency B (Rapid Recovery)</option>
-                    </select>
+                    {fetchingAgents ? (
+                        <div className="flex items-center space-x-2 text-slate-400 p-3 bg-slate-50 rounded-lg">
+                            <Loader2 className="animate-spin" size={16} />
+                            <span>Loading active agents...</span>
+                        </div>
+                    ) : agents.length === 0 ? (
+                        <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">
+                            No active agents found. Please approve agents in "Manage Agents".
+                        </div>
+                    ) : (
+                        <select
+                            value={selectedAgency}
+                            onChange={(e) => setSelectedAgency(e.target.value)}
+                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            {agents.map(agent => (
+                                <option key={agent.id} value={agent.agencyName}>
+                                    {agent.agencyName} ({agent.email})
+                                </option>
+                            ))}
+                        </select>
+                    )}
                 </div>
 
                 <div className="flex space-x-3">
@@ -50,8 +95,8 @@ export default function AllocationModal({ isOpen, onClose, selectedCount, onConf
                     </button>
                     <button
                         onClick={handleConfirm}
-                        disabled={loading}
-                        className="flex-1 py-2.5 px-4 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 flex items-center justify-center space-x-2"
+                        disabled={loading || agents.length === 0}
+                        className="flex-1 py-2.5 px-4 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
                     >
                         {loading ? <span>Processing...</span> : <><span>Confirm Assignment</span><Check size={18} /></>}
                     </button>
