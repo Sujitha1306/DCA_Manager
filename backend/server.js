@@ -53,35 +53,55 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 app.post('/api/negotiate', async (req, res) => {
     try {
         const { caseData, historyNotes } = req.body;
-        const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+
+        if (!caseData || !caseData.amount) {
+            return res.status(400).json({ error: "Missing case data" });
+        }
+
+        // Use the faster, newer model
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
         const prompt = `
-        Act as a Debt Collection Negotiation Expert.
-        Case Details:
-        - Amount: $${caseData.amount}
-        - Days Overdue: ${caseData.daysOverdue}
-        - Risk Score: ${caseData.riskScore || 'N/A'}
-        
-        History: ${historyNotes || "No prior history."}
+        Act as a Debt Collection Expert.
+        Case: $${caseData.amount}, Overdue ${caseData.daysOverdue} days, Risk ${caseData.riskScore || 'N/A'}.
+        History: ${historyNotes || "None"}.
 
-        Provide a JSON response with:
-        1. strategy: Short title (e.g. "Empathetic Firmness")
-        2. analysis: One sentence insight.
-        3. script: A 2-sentence script for the agent.
+        Output strictly JSON:
+        {
+        "strategy": "Short Title",
+        "analysis": "One sentence insight",
+        "script": "Two sentence script"
+        }
         `;
 
         const result = await model.generateContent(prompt);
         const response = await result.response;
         const text = response.text();
 
-        // Clean JSON
-        const jsonStr = text.replace(/```json|```/g, '').trim();
-        const data = JSON.parse(jsonStr);
+        // Robust JSON Extraction
+        // 1. Remove markdown
+        let jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        // 2. Find first { and last }
+        const firstOpen = jsonStr.indexOf('{');
+        const lastClose = jsonStr.lastIndexOf('}');
+        if (firstOpen !== -1 && lastClose !== -1) {
+            jsonStr = jsonStr.substring(firstOpen, lastClose + 1);
+        }
 
+        const data = JSON.parse(jsonStr);
         res.json(data);
+
     } catch (error) {
         console.error("Negotiation Error:", error);
-        res.status(500).json({ error: "Failed to generate strategy" });
+        // Fallback for UI if AI fails
+        res.status(500).json({
+            error: "AI Generation Failed",
+            fallback: {
+                strategy: "Standard Protocol",
+                analysis: "Unable to generate real-time insight.",
+                script: "I am calling regarding your outstanding balance. How can we resolve this today?"
+            }
+        });
     }
 });
 
