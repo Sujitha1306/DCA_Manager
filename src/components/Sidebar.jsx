@@ -11,7 +11,7 @@ export default function Sidebar() {
         { name: 'Dashboard', path: '/', icon: LayoutDashboard, roles: ['admin', 'agency'] },
         { name: 'Case Pool', path: '/cases', icon: Briefcase, roles: ['admin'] },
         { name: 'My Worklist', path: '/worklist', icon: FileText, roles: ['agency'] },
-        { name: 'Agencies', path: '/agencies', icon: Users, roles: ['admin'] },
+        { name: 'Agencies', path: '/admin', icon: Users, roles: ['admin'] },
         { name: 'Analytics', path: '/analytics', icon: BarChart3, roles: ['admin'] },
     ];
 
