@@ -159,55 +159,81 @@ app.post('/api/allocate', async (req, res) => {
         });
 
         // Step 4: Assignment Loop
-        const batch = db.batch();
-        const notificationsBatch = db.collection('notifications'); // Batch writes to notify
-        let assignedCount = 0;
-        const MAX_LOAD_PER_BATCH = 5; // Prevent dumping too many on one person at once
+        // Step 4: Assignment Logic (Balanced & Skill-Based)
 
-        // Sort agents by Score DESC initially
+        // A. Sort Cases by Risk (Hardest First)
+        // We want the best agents to handle the hardest cases.
+        const unassignedCases = snapshot.docs.map(doc => ({ id: doc.id, ref: doc.ref, data: doc.data() }));
+        unassignedCases.sort((a, b) => (b.data.riskScore || 0) - (a.data.riskScore || 0));
+
+        // B. Sort Agents by Score (Best First)
         agents.sort((a, b) => b.score - a.score);
 
-        snapshot.docs.forEach(doc => {
-            // Greedy assignment: Pick best agent who isn't overloaded in this batch
-            // Updates 'currentLoad' strictly for this batch logic
+        // C. Calculate Fair Share (Prevent Overload)
+        const totalUnassigned = unassignedCases.length;
+        const totalAgents = agents.length;
+        const fairShare = Math.ceil(totalUnassigned / totalAgents);
 
-            // Find best candidate
-            // Filter: Must have < 20 active cases (Hard Cap) 
-            // In reality, we might look at 'cap' field in user profile.
-            const candidate = agents.find(a => a.currentLoad < 20);
+        console.log(`Allocation Strategy: ${totalUnassigned} cases / ${totalAgents} agents. Max per agent this batch: ${fairShare}`);
 
-            if (candidate) {
-                // Assign
-                batch.update(doc.ref, {
-                    assignedAgency: candidate.agencyName,
-                    assignedAgentId: candidate.uid, // CRITICAL for tracking
-                    status: 'Assigned',
-                    updatedAt: new Date().toISOString(),
-                    aiScore: candidate.score,
-                    autoAllocated: true
-                });
+        const batch = db.batch();
+        const notificationsBatch = db.collection('notifications');
+        let assignedCount = 0;
+        let agentIndex = 0;
 
-                // Create Notification
-                const notifRef = notificationsBatch.doc();
-                batch.set(notifRef, {
-                    userId: candidate.uid,
-                    title: 'New Case Assigned',
-                    message: `You have been assigned a new case. AI Match Score: ${(candidate.score * 100).toFixed(0)}%`,
-                    read: false,
-                    createdAt: new Date().toISOString(),
-                    type: 'assignment'
-                });
+        // D. Distribute
+        for (const caseObj of unassignedCases) {
+            // Find an agent who hasn't reached the fair share limit FOR THIS BATCH
+            // Since agents are sorted by score, we try to give the first (best) agent cases until they are full.
+            // But we also need to respect their TOTAL load (e.g. max 20 active).
 
-                // Update candidate virtual load so we don't dump everything on them
-                candidate.currentLoad++;
-                // Re-sort? No, simple round-robin weighted by initial score is better?
-                // For now, let's just keep picking the best one until they hit cap.
-                // To distribute better, we could rotate candidates.
-                // Re-sort is expensive. Let's just bump their load.
+            let assigned = false;
+            let attempts = 0;
 
-                assignedCount++;
+            while (!assigned && attempts < totalAgents) {
+                const agent = agents[agentIndex];
+
+                // Track meaningful load for this specific batch allocation
+                if (!agent.batchAssigned) agent.batchAssigned = 0;
+
+                // Check limits: 
+                // 1. Don't exceed fair share for this run (distributes new work evenly)
+                // 2. Don't exceed hard max capacity (e.g. 20)
+                if (agent.batchAssigned < fairShare && agent.currentLoad < 20) {
+
+                    // Assign Case
+                    batch.update(caseObj.ref, {
+                        assignedAgency: agent.agencyName,
+                        assignedAgentId: agent.uid,
+                        status: 'Assigned',
+                        updatedAt: new Date().toISOString(),
+                        aiScore: agent.score,
+                        autoAllocated: true
+                    });
+
+                    // Create Notification
+                    const notifRef = notificationsBatch.doc();
+                    batch.set(notifRef, {
+                        userId: agent.uid,
+                        title: 'New Case Assigned',
+                        message: `You have been assigned a high-priority case. Risk Score: ${caseObj.data.riskScore || 'N/A'}. Match Score: ${(agent.score * 100).toFixed(0)}%`,
+                        read: false,
+                        createdAt: new Date().toISOString(),
+                        type: 'assignment'
+                    });
+
+                    // Update Counters
+                    agent.batchAssigned++;
+                    agent.currentLoad++;
+                    assignedCount++;
+                    assigned = true;
+                } else {
+                    // Agent full or hit quota, move to next
+                    agentIndex = (agentIndex + 1) % totalAgents;
+                    attempts++;
+                }
             }
-        });
+        }
 
         await batch.commit();
 
