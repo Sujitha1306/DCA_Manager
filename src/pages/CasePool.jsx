@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useCases } from '../context/CaseContext';
 import DataTable from '../components/DataTable';
 import AllocationModal from '../components/AllocationModal';
-import { Filter, Users, Download, SlidersHorizontal, Bot, CheckCircle, Loader2 } from 'lucide-react';
+import AddCaseModal from '../components/AddCaseModal';
+import { Filter, Users, Download, SlidersHorizontal, Bot, CheckCircle, Loader2, Plus } from 'lucide-react';
 import { clsx } from "clsx";
 import { API_BASE_URL } from '../api/config';
 
@@ -10,6 +11,7 @@ export default function CasePool() {
     const { cases, updateCases } = useCases();
     const [selectedIds, setSelectedIds] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [filterMode, setFilterMode] = useState('all'); // 'all', 'unassigned', 'high_risk'
 
     // Auto-Allocate State
@@ -82,6 +84,15 @@ export default function CasePool() {
                     <p className="text-slate-500">Manage, prioritize, and assign debts.</p>
                 </div>
                 <div className="flex items-center space-x-3">
+                    {/* Add Cases Button */}
+                    <button
+                        onClick={() => setIsAddModalOpen(true)}
+                        className="flex items-center space-x-2 px-4 py-2 border border-blue-200 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
+                    >
+                        <Plus size={18} />
+                        <span>Add Cases</span>
+                    </button>
+
                     {/* Auto Allocate Button */}
                     <button
                         onClick={handleAutoAllocate}
@@ -160,6 +171,12 @@ export default function CasePool() {
                 onClose={() => setIsModalOpen(false)}
                 selectedCount={selectedIds.length}
                 onConfirm={handleAllocation}
+            />
+
+            {/* Add Case Modal */}
+            <AddCaseModal
+                isOpen={isAddModalOpen}
+                onClose={() => setIsAddModalOpen(false)}
             />
         </div>
     );

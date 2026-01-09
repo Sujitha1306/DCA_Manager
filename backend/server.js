@@ -126,17 +126,99 @@ app.post('/api/predict-sla', async (req, res) => {
         const isOld = caseData.daysOverdue > 90;
         const isUnpaid = caseData.status !== 'Paid';
 
-        const isHighRisk = isStagnant && isOld && isUnpaid;
+        // Enhanced Logic
+        let riskScore = 20; // Base risk
+        if (isOld) riskScore += 50;
+        if (isStagnant) riskScore += 20;
+        if (caseData.amount > 5000) riskScore += 10;
+
+        const isHighRisk = riskScore > 70;
 
         res.json({
             isHighRisk,
-            riskScore: isHighRisk ? 90 : 20,
+            riskScore,
             factors: { isStagnant, isOld, isUnpaid }
         });
 
     } catch (error) {
         console.error("Risk Prediction Error:", error);
         res.status(500).json({ error: "Prediction failed" });
+    }
+});
+
+// 4. Ingest Cases (Bulk Import with AI Scoring)
+app.post('/api/ingest', async (req, res) => {
+    try {
+        const { cases } = req.body; // Array of case objects
+
+        if (!cases || !Array.isArray(cases)) {
+            return res.status(400).json({ error: "Invalid input. Expected 'cases' array." });
+        }
+
+        const batch = db.batch();
+        const casesRef = db.collection('cases');
+
+        let processedCount = 0;
+
+        cases.forEach(c => {
+            const newDocRef = casesRef.doc();
+
+            // AI Classification Logic
+            // In a real world, we might call an ML model here.
+            // For now, we apply our heuristic model relative to the data.
+
+            const amount = parseFloat(c.amount) || 0;
+            const daysOverdue = parseInt(c.daysOverdue) || 0;
+
+            // Risk Calculation
+            // Formula: Higher Amount + Higher Age = Higher Risk of Default (SLA Breach)
+            // Normalized to 0-100
+            let riskScore = 30; // Base Baseline
+
+            if (daysOverdue > 30) riskScore += 20;
+            if (daysOverdue > 60) riskScore += 20;
+            if (daysOverdue > 90) riskScore += 25; // Critical age
+
+            if (amount > 10000) riskScore += 10; // High value is riskier to lose? Or prioritized? 
+            // Usually high value is higher priority.
+            // Let's say "Risk Score" = "Risk of NON-PAYMENT".
+
+            // Cap at 99
+            riskScore = Math.min(99, riskScore);
+
+            // Determine "Predicted Status" or "Segmentation"
+            let segment = 'Standard';
+            if (riskScore > 80) segment = 'High Priority';
+            if (amount < 500) segment = 'Low Balance';
+
+            const enrichedCase = {
+                ...c,
+                amount,
+                daysOverdue,
+                riskScore,
+                segment,
+                status: 'New',
+                assignedAgency: 'Unassigned',
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                notes: [] // Init notes
+            };
+
+            batch.set(newDocRef, enrichedCase);
+            processedCount++;
+        });
+
+        await batch.commit();
+
+        res.json({
+            success: true,
+            count: processedCount,
+            message: `Successfully ingested and scored ${processedCount} cases.`
+        });
+
+    } catch (error) {
+        console.error("Ingestion Error:", error);
+        res.status(500).json({ error: "Ingestion failed" });
     }
 });
 
