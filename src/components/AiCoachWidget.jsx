@@ -23,29 +23,21 @@ const AiCoachWidget = ({ caseData, historyNotes }) => {
                     body: JSON.stringify({ caseData, historyNotes })
                });
 
+               const data = await response.json().catch(() => null);
+
                if (!response.ok) {
-                    throw new Error('Failed to generate strategy');
+                    // Check for fallback data from robust backend
+                    if (data && data.fallback) {
+                         console.warn("Using AI Fallback:", data.error);
+                         setAiData(data.fallback);
+                         return;
+                    }
+                    throw new Error(data?.error || 'Failed to generate strategy');
                }
 
-               const data = await response.json();
                setAiData(data);
           } catch (err) {
                console.error("AI Error:", err);
-               // Disable fallback to debug the underlying connection issue
-               /*
-               if (process.env.NODE_ENV === 'development') {
-                    setTimeout(() => {
-                         setAiData({
-                              strategy: "Empathetic Firmness",
-                              analysis: "Customer shows willingness but lacks immediate funds.",
-                              script: "I understand this is a difficult time. However, to avoid further escalation, strictly paying $200 today would secure your account status."
-                         });
-                         setLoading(false);
-                    }, 2000);
-                    return;
-               }
-               */
-
                setError(`Failed: ${err.message}`);
           } finally {
                if (process.env.NODE_ENV !== 'development') {

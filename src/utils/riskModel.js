@@ -11,13 +11,16 @@
 export const calculateSlaRisk = (caseData, interactionLogs = []) => {
      if (!caseData) return false;
 
-     const interactionCount = interactionLogs ? interactionLogs.length : 0; // Or caseData.interactionCount if available directly
-     // Using caseData.interactionCount as fallback or primary if logs strictly not passed everytime
-     const count = caseData.interactionCount !== undefined ? caseData.interactionCount : interactionCount;
+     const count = Number(caseData.interactionCount || interactionLogs?.length || 0);
+     const daysOverdue = Number(caseData.daysOverdue || 0);
+     const amount = Number(caseData.amount || 0);
 
-     const isStagnant = count > 5;
-     const isOld = caseData.daysOverdue > 90;
-     const isUnpaid = caseData.status !== 'Paid';
+     if (caseData.status === 'Paid') return false;
 
-     return isStagnant && isOld && isUnpaid;
+     // Risk Criteria (Any one triggers Alert)
+     const isStagnant = count > 5; // Too many attempts without success
+     const isOld = daysOverdue > 60; // Approaching write-off age
+     const isHighValueAtRisk = amount > 3000 && daysOverdue > 30; // High value sitting for a month
+
+     return isStagnant || isOld || isHighValueAtRisk;
 };

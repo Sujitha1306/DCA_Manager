@@ -5,13 +5,19 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 
 export default function Dashboard() {
     const { user } = useAuth();
-    const { cases: data } = useCases();
+    const { cases: allCases } = useCases();
+
+    // --- ROLE-BASED DATA FILTERING ---
+    // Agents see ONLY their assigned cases. Admins see ALL cases.
+    const data = user?.role === 'agent'
+        ? allCases.filter(c => c.assignedAgentId === user?.uid)
+        : allCases;
 
     // --- DATA PROCESSING FOR CHARTS ---
 
-    // 1. Bar Chart: Recovery by Agency
+    // 1. Bar Chart: Recovery by Agency (Admin Only usually, or just relevant data)
     const agencyPerformance = data.reduce((acc, curr) => {
-        const agency = curr.assignedAgency;
+        const agency = curr.assignedAgency || 'Unassigned';
         if (!acc[agency]) acc[agency] = { name: agency, assigned: 0, recovered: 0 };
         acc[agency].assigned += curr.amount;
         if (curr.status === 'Paid' || curr.status === 'PTP') {
@@ -23,7 +29,8 @@ export default function Dashboard() {
 
     // 2. Pie Chart: Status Distribution
     const statusData = data.reduce((acc, curr) => {
-        acc[curr.status] = (acc[curr.status] || 0) + 1;
+        const status = curr.status || 'System'; // Default to something if missing
+        acc[status] = (acc[status] || 0) + 1;
         return acc;
     }, {});
     const pieData = Object.keys(statusData).map(key => ({ name: key, value: statusData[key] }));
@@ -37,7 +44,7 @@ export default function Dashboard() {
 
     // 4. Global Audit Trail (Flattened Notes)
     const auditTrail = data
-        .flatMap(c => c.notes.map(n => ({ ...n, caseId: c.id, customer: c.customerName })))
+        .flatMap(c => (c.notes || []).map(n => ({ ...n, caseId: c.id, customer: c.customerName })))
         .sort((a, b) => new Date(b.date) - new Date(a.date))
         .slice(0, 10); // Show last 10
 
@@ -79,31 +86,37 @@ export default function Dashboard() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">
-                        {user?.role === 'admin' ? 'Executive Dashboard' : 'Agency Dashboard'}
+                        {user?.role === 'admin' ? 'Executive Dashboard' : 'Agent Dashboard'}
                     </h1>
-                    <p className="text-slate-500">Real-time performance metrics and financial recovery insights.</p>
+                    <p className="text-slate-500">
+                        {user?.role === 'admin'
+                            ? 'Real-time performance metrics and financial recovery insights.'
+                            : 'Track your assigned cases and performance.'}
+                    </p>
                 </div>
-                <button
-                    onClick={handleExport}
-                    className="flex items-center space-x-2 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors"
-                >
-                    <Download size={16} />
-                    <span>Export Report</span>
-                </button>
+                {user?.role === 'admin' && (
+                    <button
+                        onClick={handleExport}
+                        className="flex items-center space-x-2 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors"
+                    >
+                        <Download size={16} />
+                        <span>Export Report</span>
+                    </button>
+                )}
             </div>
 
             {/* KPI ROW */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard
-                    title="Total Overdue Debt"
-                    value={`$${(data.reduce((acc, c) => acc + c.amount, 0) / 1000).toFixed(1)}k`}
-                    subtext="Across all agencies"
+                    title="Total Overdue"
+                    value={`$${(data.reduce((acc, c) => acc + (c.amount || 0), 0) / 1000).toFixed(1)}k`}
+                    subtext={user?.role === 'admin' ? "Across all agencies" : "Your Portfolio"}
                     color="text-red-500"
                     icon={AlertCircle}
                 />
                 <StatCard
                     title="Recovered (Month)"
-                    value={`$${(data.filter(c => c.status === 'Paid').reduce((acc, c) => acc + c.amount, 0) / 1000).toFixed(1)}k`}
+                    value={`$${(data.filter(c => c.status === 'Paid').reduce((acc, c) => acc + (c.amount || 0), 0) / 1000).toFixed(1)}k`}
                     subtext="+12% from last month"
                     color="text-emerald-600"
                     icon={TrendingUp}
@@ -111,41 +124,55 @@ export default function Dashboard() {
                 <StatCard
                     title="Active Cases"
                     value={data.length}
-                    subtext="15 Unassigned"
+                    subtext={user?.role === 'admin' ? "15 Unassigned" : "Assigned to you"}
                     color="text-blue-600"
                     icon={FileText}
                 />
-                <StatCard
-                    title="Avg Risk Score"
-                    value={Math.round(data.reduce((acc, c) => acc + c.riskScore, 0) / data.length || 0)}
-                    subtext="Portfolio Health"
-                    color="text-orange-500"
-                    icon={Activity}
-                />
+
+                {/* Agent: Performance Score. Admin: Nothing (as requested) */}
+                {user?.role === 'agent' && (
+                    <StatCard
+                        title="My Performance"
+                        value={`${((data.filter(c => c.status === 'Paid').reduce((acc, c) => acc + c.amount, 0) / (data.reduce((acc, c) => acc + c.amount, 0) || 1)) * 100).toFixed(0)}%`}
+                        subtext="Recovery Rate"
+                        color="text-purple-600"
+                        icon={TrendingUp}
+                    />
+                )}
+                {/* Admin: Show average risk score if needed, but user said REMOVE it. 
+                    However, grid-cols-4 might look empty. 
+                    Let's leave it empty or add a filler? 
+                    User said "admin will not have the Avg Risk Score".
+                    I will just render nothing for Admin in the 4th slot if that's what matches 'will not have'.
+                */}
             </div>
 
             {/* CHARTS ROW */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="glass-card p-6 rounded-xl">
-                    <h3 className="font-bold text-slate-900 mb-4">Recovery by Agency</h3>
-                    <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={barData}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                                <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                                <YAxis axisLine={false} tickLine={false} tickFormatter={(value) => `$${value / 1000}k`} />
-                                <Tooltip formatter={(value) => `$${value.toLocaleString()}`} cursor={{ fill: '#F1F5F9' }} />
-                                <Bar dataKey="assigned" name="Assigned" fill="#94A3B8" radius={[4, 4, 0, 0]} />
-                                <Bar dataKey="recovered" name="Recovered" fill="#10B981" radius={[4, 4, 0, 0]} />
-                                <Legend />
-                            </BarChart>
-                        </ResponsiveContainer>
+                {/* Recovery by Agency - ADMIN ONLY */}
+                {user?.role === 'admin' && (
+                    <div className="glass-card p-6 rounded-xl">
+                        <h3 className="font-bold text-slate-900 mb-4">Recovery by Agency</h3>
+                        <div className="h-64 w-full min-h-[256px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={barData}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                                    <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                                    <YAxis axisLine={false} tickLine={false} tickFormatter={(value) => `$${value / 1000}k`} />
+                                    <Tooltip formatter={(value) => `$${value.toLocaleString()}`} cursor={{ fill: '#F1F5F9' }} />
+                                    <Bar dataKey="assigned" name="Assigned" fill="#94A3B8" radius={[4, 4, 0, 0]} />
+                                    <Bar dataKey="recovered" name="Recovered" fill="#10B981" radius={[4, 4, 0, 0]} />
+                                    <Legend />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
                     </div>
-                </div>
+                )}
 
-                <div className="glass-card p-6 rounded-xl">
+                {/* Case Status Distribution - Both can see (Filtered for Agent) */}
+                <div className={user?.role === 'admin' ? "glass-card p-6 rounded-xl" : "glass-card p-6 rounded-xl lg:col-span-2"}>
                     <h3 className="font-bold text-slate-900 mb-4">Case Status Distribution</h3>
-                    <div className="h-64">
+                    <div className="h-64 w-full min-h-[256px]">
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                                 <Pie
@@ -174,7 +201,7 @@ export default function Dashboard() {
                 {/* Trend Chart */}
                 <div className="lg:col-span-2 glass-card p-6 rounded-xl">
                     <h3 className="font-bold text-slate-900 mb-4">30-Day Recovery Trend</h3>
-                    <div className="h-64">
+                    <div className="h-64 w-full min-h-[256px]">
                         <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={trendData}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
@@ -187,11 +214,11 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                {/* Global Audit Trail */}
+                {/* Global Live Feed (Filtered for Agent) */}
                 <div className="glass-card p-6 rounded-xl">
                     <h3 className="font-bold text-slate-900 mb-4 flex items-center">
                         <Activity size={18} className="mr-2 text-slate-400" />
-                        Global Live Feed
+                        {user?.role === 'admin' ? "Global Live Feed" : "Your Activity Feed"}
                     </h3>
                     <div className="space-y-4 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
                         {auditTrail.map((log, i) => (
@@ -199,7 +226,7 @@ export default function Dashboard() {
                                 <div className="mt-1 min-w-[6px] h-[6px] rounded-full bg-blue-500"></div>
                                 <div>
                                     <p className="text-slate-900">
-                                        <span className="font-semibold">{log.author}</span> logged <span className="font-medium text-blue-600">{log.type}</span>
+                                        <span className="font-semibold">{log.author}</span> logged <span className="font-medium text-blue-600">{log.type || 'Action'}</span>
                                     </p>
                                     <p className="text-xs text-slate-500 mt-0.5">
                                         {log.customer} • {new Date(log.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

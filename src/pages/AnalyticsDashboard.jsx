@@ -68,7 +68,7 @@ export default function AnalyticsDashboard() {
                          </div>
 
                          <div className="h-[300px] w-full min-h-[300px]">
-                              <ResponsiveContainer width="100%" height="100%">
+                              <ResponsiveContainer width="100%" height="100%" minHeight={300}>
                                    <AreaChart data={volumeForecast} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                         <defs>
                                              <linearGradient id="colorActual" x1="0" y1="0" x2="0" y2="1">
@@ -132,7 +132,7 @@ export default function AnalyticsDashboard() {
                          </div>
 
                          <div className="h-[300px] w-full min-h-[300px]">
-                              <ResponsiveContainer width="100%" height="100%">
+                              <ResponsiveContainer width="100%" height="100%" minHeight={300}>
                                    <BarChart data={agentRisk} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} layout="vertical">
                                         <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#E2E8F0" />
                                         <XAxis type="number" domain={[0, 100]} hide />

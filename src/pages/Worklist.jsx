@@ -13,8 +13,8 @@ export default function Worklist() {
     const [isAiSorted, setIsAiSorted] = useState(false);
 
     const processedCases = useMemo(() => {
-        // 1. Filter by Agency
-        let data = cases.filter(c => c.assignedAgency === user?.agencyId);
+        // 1. Filter by Agent (Match Dashboard logic)
+        let data = cases.filter(c => c.assignedAgentId === user?.uid);
 
         // 2. Calculate Scores
         data = data.map(c => ({
@@ -73,8 +73,8 @@ export default function Worklist() {
                     <button
                         onClick={() => setIsAiSorted(!isAiSorted)}
                         className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-all ${isAiSorted
-                                ? 'bg-indigo-600 text-white shadow-md ring-2 ring-indigo-200'
-                                : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
+                            ? 'bg-indigo-600 text-white shadow-md ring-2 ring-indigo-200'
+                            : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
                             }`}
                     >
                         <Sparkles size={16} className={`mr-2 ${isAiSorted ? 'animate-pulse' : 'text-indigo-500'}`} />

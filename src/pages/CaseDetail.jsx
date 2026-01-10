@@ -54,7 +54,7 @@ export default function CaseDetail() {
             text: `Logged ${activityType} - ${outcome}. ${noteText} ${disputeReason ? `[Reason: ${disputeReason}]` : ''} ${ptpDate ? `[PTP: ${ptpDate}]` : ''}`,
             type: activityType,
             outcome: outcome,
-            author: user.name,
+            author: user.name || user.email || 'Agent', // Fallback if name is missing
             date: new Date().toISOString()
         };
         await addCaseNote(currentCase.id, note);

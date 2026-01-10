@@ -8,9 +8,9 @@ export default function Sidebar() {
     const location = useLocation();
 
     const links = [
-        { name: 'Dashboard', path: '/', icon: LayoutDashboard, roles: ['admin', 'agency'] },
+        { name: 'Dashboard', path: '/', icon: LayoutDashboard, roles: ['admin', 'agent'] },
         { name: 'Case Pool', path: '/cases', icon: Briefcase, roles: ['admin'] },
-        { name: 'My Worklist', path: '/worklist', icon: FileText, roles: ['agency'] },
+        { name: 'My Worklist', path: '/worklist', icon: FileText, roles: ['agent'] },
         { name: 'Agencies', path: '/admin', icon: Users, roles: ['admin'] },
         { name: 'Analytics', path: '/analytics', icon: BarChart3, roles: ['admin'] },
     ];
@@ -52,10 +52,10 @@ export default function Sidebar() {
             <div className="p-4 border-t border-slate-800">
                 <div className="flex items-center space-x-3 px-4 py-3 mb-2">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-xs font-bold">
-                        {user?.name?.[0]}
+                        {user?.name?.[0] || user?.email?.[0]?.toUpperCase()}
                     </div>
                     <div className="flex-1 overflow-hidden">
-                        <p className="text-sm font-medium truncate">{user?.name}</p>
+                        <p className="text-sm font-medium truncate">{user?.name || user?.email?.split('@')[0]}</p>
                         <p className="text-xs text-slate-500 truncate capitalize">{user?.role}</p>
                     </div>
                 </div>
