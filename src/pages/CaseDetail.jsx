@@ -22,6 +22,7 @@ export default function CaseDetail() {
     const [noteText, setNoteText] = useState('');
     const [disputeReason, setDisputeReason] = useState('');
     const [ptpDate, setPtpDate] = useState('');
+    const [partialAmount, setPartialAmount] = useState('');
     const [loading, setLoading] = useState(false);
 
     // AI Insights
@@ -45,35 +46,53 @@ export default function CaseDetail() {
         e.preventDefault();
         if (isDispute && !disputeReason) return; // Validation
         if (isPTP && !ptpDate) return;
+        if (outcome === 'Partial' && (!partialAmount || partialAmount <= 0)) return;
 
         setLoading(true);
+
+        const isPartial = outcome === 'Partial';
+        let noteContent = `Logged ${activityType} - ${outcome}. ${noteText}`;
+
+        if (isPartial) noteContent += ` [Paid: $${partialAmount.toLocaleString()}, Remaining: $${(currentCase.amount - partialAmount).toLocaleString()}]`;
+        if (disputeReason) noteContent += ` [Reason: ${disputeReason}]`;
+        if (ptpDate) noteContent += ` [PTP: ${ptpDate}]`;
 
         // 1. Add Note
         const note = {
             id: `n-${Date.now()}`,
-            text: `Logged ${activityType} - ${outcome}. ${noteText} ${disputeReason ? `[Reason: ${disputeReason}]` : ''} ${ptpDate ? `[PTP: ${ptpDate}]` : ''}`,
+            text: noteContent,
             type: activityType,
             outcome: outcome,
-            author: user.name || user.email || 'Agent', // Fallback if name is missing
+            author: user.name || user.email || 'Agent',
             date: new Date().toISOString()
         };
         await addCaseNote(currentCase.id, note);
 
-        // 2. Update Status if needed
+        // 2. Update Status/Amount
+        const updates = {};
         let newStatus = currentCase.status;
+
         if (outcome === 'Paid') newStatus = CASE_STATUS.PAID;
+        else if (isPartial) {
+            updates.amount = currentCase.amount - partialAmount;
+            // Status remains Active/Contacted unless 0
+            if (updates.amount <= 0) newStatus = CASE_STATUS.PAID;
+        }
         else if (outcome === 'PTP') newStatus = CASE_STATUS.PTP;
         else if (outcome === 'Dispute') newStatus = CASE_STATUS.DISPUTE;
         else if (newStatus === CASE_STATUS.NEW && (outcome === 'Contacted' || outcome === 'No Answer')) newStatus = CASE_STATUS.CONTACTED;
 
-        if (newStatus !== currentCase.status) {
-            await updateCases([currentCase.id], { status: newStatus });
+        if (newStatus !== currentCase.status) updates.status = newStatus;
+
+        if (Object.keys(updates).length > 0) {
+            await updateCases([currentCase.id], updates);
         }
 
         setLoading(false);
         setNoteText('');
         setDisputeReason('');
         setPtpDate('');
+        setPartialAmount('');
     };
 
     const handleCloseCase = async () => {
@@ -148,9 +167,21 @@ export default function CaseDetail() {
                     <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="font-bold text-slate-900">Customer Details</h3>
-                            <button className="flex items-center space-x-2 text-blue-600 text-sm hover:underline">
+                            <button
+                                onClick={() => {
+                                    const content = `INVOICE #${currentCase.id}\nDate: ${new Date().toISOString().split('T')[0]}\n\nBILL TO:\n${currentCase.customerName}\n\nITEMS:\n1. Outstanding Services - $${currentCase.amount.toLocaleString()}\n2. Late Fees - $0.00\n\nTOTAL DUE: $${currentCase.amount.toLocaleString()}\n\nPlease remit payment immediately.`;
+                                    const blob = new Blob([content], { type: 'text/plain' });
+                                    const link = document.createElement('a');
+                                    link.href = URL.createObjectURL(blob);
+                                    link.download = `Invoice_${currentCase.id}.txt`;
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    document.body.removeChild(link);
+                                }}
+                                className="flex items-center space-x-2 text-blue-600 text-sm hover:underline"
+                            >
                                 <Download size={16} />
-                                <span>Orig. Invoice</span>
+                                <span>Orig. Invoice (TXT)</span>
                             </button>
                         </div>
                         <div className="grid grid-cols-2 gap-4 text-sm">
@@ -208,10 +239,30 @@ export default function CaseDetail() {
                 {/* RIGHT COLUMN: Action Console */}
                 <div className="space-y-6">
                     <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm sticky top-24">
-                        <h3 className="font-bold text-slate-900 mb-4 flex items-center">
-                            <CheckCircle size={20} className="mr-2 text-blue-600" />
-                            Action Console
+                        <h3 className="font-bold text-slate-900 mb-4 flex items-center justify-between">
+                            <div className="flex items-center">
+                                <CheckCircle size={20} className="mr-2 text-blue-600" />
+                                Action Console
+                            </div>
                         </h3>
+
+                        {/* Quick Actions */}
+                        <div className="grid grid-cols-2 gap-3 mb-6">
+                            <button
+                                onClick={() => window.open(`tel:${currentCase.phone || '+15550001111'}`)}
+                                className="flex items-center justify-center space-x-2 py-3 bg-emerald-50 text-emerald-700 font-medium rounded-lg hover:bg-emerald-100 transition-colors border border-emerald-100"
+                            >
+                                <Phone size={18} />
+                                <span>Call Now</span>
+                            </button>
+                            <button
+                                onClick={() => window.open(`mailto:${currentCase.email || 'finance@client.com'}?subject=Invoice #${currentCase.id}`)}
+                                className="flex items-center justify-center space-x-2 py-3 bg-blue-50 text-blue-700 font-medium rounded-lg hover:bg-blue-100 transition-colors border border-blue-100"
+                            >
+                                <Mail size={18} />
+                                <span>Send Email</span>
+                            </button>
+                        </div>
 
                         <form onSubmit={handleLogActivity} className="space-y-4">
                             <div>
@@ -243,10 +294,27 @@ export default function CaseDetail() {
                                     <option value="No Answer">No Answer / VM</option>
                                     <option value="Contacted">Contacted - Discussing</option>
                                     <option value="PTP">Promise to Pay (PTP)</option>
+                                    <option value="Partial">Partial Payment Received</option>
                                     <option value="Paid">Full Payment Received</option>
                                     <option value="Dispute">Dispute / Issue</option>
                                 </select>
                             </div>
+
+                            {outcome === 'Partial' && (
+                                <div className="animate-fade-in-down">
+                                    <label className="text-xs font-semibold text-emerald-600 uppercase">Amount Received ($)</label>
+                                    <input
+                                        type="number"
+                                        required
+                                        min="1"
+                                        max={currentCase.amount}
+                                        value={partialAmount}
+                                        onChange={(e) => setPartialAmount(Number(e.target.value))}
+                                        className="w-full mt-1 p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-sm outline-none font-bold text-emerald-700"
+                                    />
+                                    <p className="text-xs text-slate-500 mt-1">Remaining Balance: <span className="font-bold">${(currentCase.amount - (partialAmount || 0)).toLocaleString()}</span></p>
+                                </div>
+                            )}
 
                             {isPTP && (
                                 <div className="animate-fade-in-down">
@@ -282,17 +350,32 @@ export default function CaseDetail() {
                                     onChange={(e) => setNoteText(e.target.value)}
                                     className="w-full mt-2 p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                                     rows={3}
-                                    placeholder="Add additional context..."
+                                    placeholder={activityType === 'Email' ? "Email content..." : "Add additional context..."}
                                 />
                             </div>
 
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                className="w-full py-2.5 bg-slate-900 text-white font-medium rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-70"
-                            >
-                                {loading ? 'Logging...' : 'Log Activity'}
-                            </button>
+                            <div className="flex gap-2">
+                                {activityType === 'Email' && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            window.open(`mailto:finance@${currentCase.customerName.toLowerCase().replace(/\s/g, '')}.com?subject=Overdue Invoice #${currentCase.id}&body=${noteText}`);
+                                            // Auto-log after send? Or let user click Log.
+                                            // Let's just open mail client and user manually logs.
+                                        }}
+                                        className="flex-1 py-2.5 bg-blue-100 text-blue-700 font-medium rounded-lg hover:bg-blue-200 transition-colors"
+                                    >
+                                        Send Email
+                                    </button>
+                                )}
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="flex-1 py-2.5 bg-slate-900 text-white font-medium rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-70"
+                                >
+                                    {loading ? 'Logging...' : 'Log Activity'}
+                                </button>
+                            </div>
                         </form>
 
                         <div className="mt-8 pt-6 border-t border-slate-200">

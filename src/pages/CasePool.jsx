@@ -8,7 +8,10 @@ import { clsx } from "clsx";
 import { API_BASE_URL } from '../api/config';
 import { calculateSlaRisk } from '../utils/riskModel';
 
+import { useNavigate } from 'react-router-dom';
+
 export default function CasePool() {
+    const navigate = useNavigate();
     const { cases, updateCases, deleteCases } = useCases();
     const [selectedIds, setSelectedIds] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -178,6 +181,8 @@ export default function CasePool() {
             <DataTable
                 data={filteredCases}
                 onSelectionChange={setSelectedIds}
+                onRowClick={(id) => navigate(`/cases/${id}`)}
+                showProbability={true}
             />
 
             {/* Manual Assignment Modal */}

@@ -100,6 +100,15 @@ export default function Login() {
                         </button>
                     </form>
 
+                    <div className="text-center mt-6">
+                        <p className="text-sm text-slate-500">
+                            Don't have an account?{' '}
+                            <button onClick={() => navigate('/signup')} className="text-blue-600 font-bold hover:underline">
+                                Create New Agent
+                            </button>
+                        </p>
+                    </div>
+
                     <div className="text-center pt-8">
                         <p className="text-xs text-slate-400">
                             By accessing this system, you agree to our compliance & security policies.

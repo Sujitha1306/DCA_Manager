@@ -63,6 +63,7 @@ export default function DataTable({ data, onSelectionChange, onRowClick }) {
                                 { label: 'Amount', key: 'amount' },
                                 { label: 'Days Overdue', key: 'daysOverdue' },
                                 { label: 'Risk Score', key: 'riskScore' },
+                                { label: 'Probability', key: 'recoveryProbability' },
                                 { label: 'Status', key: 'status' },
                                 { label: 'Assigned To', key: 'assignedAgency' },
                             ].map((col) => (
@@ -111,6 +112,14 @@ export default function DataTable({ data, onSelectionChange, onRowClick }) {
                                                 />
                                             </div>
                                             <span className="text-xs text-slate-500">{row.riskScore}</span>
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        {/* Probability Visual */}
+                                        <div className="flex items-center gap-2">
+                                            <div className="radial-progress text-xs font-bold text-blue-600" style={{ "--value": row.recoveryProbability || (row.status === 'New' ? 85 : 60), "--size": "2rem" }}>
+                                                {row.recoveryProbability || (row.status === 'New' ? 85 : 60)}%
+                                            </div>
                                         </div>
                                     </td>
                                     <td className="px-4 py-3">

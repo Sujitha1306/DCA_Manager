@@ -3,6 +3,7 @@ import { useCases } from '../context/CaseContext';
 import { BarChart3, TrendingUp, AlertCircle, CheckCircle, Download, FileText, Activity } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
 
+import { useState } from 'react';
 export default function Dashboard() {
     const { user } = useAuth();
     const { cases: allCases } = useCases();
@@ -48,22 +49,79 @@ export default function Dashboard() {
         .sort((a, b) => new Date(b.date) - new Date(a.date))
         .slice(0, 10); // Show last 10
 
+    const [selectedLog, setSelectedLog] = useState(null);
+
     // --- EXPORT TO CSV ---
     const handleExport = () => {
-        const headers = ["Case ID", "Customer", "Amount", "Status", "Agency", "Risk Score"];
-        const rows = data.map(c => [c.id, c.customerName, c.amount, c.status, c.assignedAgency, c.riskScore]);
+        if (user?.role === 'admin') {
+            // Admin: Full Agent Statistics Report
+            // We need to aggregate stats per agent first from 'allCases'
+            const agentStats = {};
+            allCases.forEach(c => {
+                const agentId = c.assignedAgentId || 'Unassigned';
+                const agentEmail = c.assignedAgentEmail || 'Unknown'; // Assuming we have this, or just ID
+                // Note: We might be missing email if not stored in Case. 
+                // Let's rely on what we have. If we don't have agent name in case, grouping by ID is best effort.
 
-        const csvContent = "data:text/csv;charset=utf-8,"
-            + headers.join(",") + "\n"
-            + rows.map(e => e.join(",")).join("\n");
+                if (!agentStats[agentId]) {
+                    agentStats[agentId] = {
+                        id: agentId,
+                        email: c.assignedAgentEmail || agentId, // Fallback
+                        totalCases: 0,
+                        recoveredAmount: 0,
+                        calls: 0,
+                        emails: 0
+                    };
+                }
+                agentStats[agentId].totalCases += 1;
+                if (c.status === 'Paid') agentStats[agentId].recoveredAmount += Number(c.amount || 0);
 
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "dca_report_export.csv");
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+                // Count interactions if notes exist
+                if (c.notes) {
+                    agentStats[agentId].calls += c.notes.filter(n => n.type === 'Call').length;
+                    agentStats[agentId].emails += c.notes.filter(n => n.type === 'Email').length;
+                }
+            });
+
+            const headers = ["Agent ID", "Agent Email", "Total Cases", "Recovered Amount", "Calls Made", "Emails Sent"];
+            const rows = Object.values(agentStats).map(a => [
+                a.id,
+                a.email,
+                a.totalCases,
+                a.recoveredAmount,
+                a.calls,
+                a.emails
+            ]);
+
+            const csvContent = "data:text/csv;charset=utf-8,"
+                + headers.join(",") + "\n"
+                + rows.map(e => e.join(",")).join("\n");
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `Full_Agent_Report_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+        } else {
+            // Agent: Case Export
+            const headers = ["Case ID", "Customer", "Amount", "Status", "Agency", "Risk Score"];
+            const rows = data.map(c => [c.id, c.customerName, c.amount, c.status, c.assignedAgency, c.riskScore]);
+
+            const csvContent = "data:text/csv;charset=utf-8,"
+                + headers.join(",") + "\n"
+                + rows.map(e => e.join(",")).join("\n");
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "dca_report_export.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
     };
 
     const StatCard = ({ title, value, subtext, color, icon: Icon }) => (
@@ -222,7 +280,7 @@ export default function Dashboard() {
                     </h3>
                     <div className="space-y-4 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
                         {auditTrail.map((log, i) => (
-                            <div key={i} className="flex gap-3 text-sm">
+                            <div key={i} onClick={() => setSelectedLog(log)} className="flex gap-3 text-sm cursor-pointer hover:bg-slate-50 p-2 rounded-lg transition-colors">
                                 <div className="mt-1 min-w-[6px] h-[6px] rounded-full bg-blue-500"></div>
                                 <div>
                                     <p className="text-slate-900">
@@ -240,6 +298,48 @@ export default function Dashboard() {
                     </div>
                 </div>
             </div>
+            {/* Log Detail Modal */}
+            {selectedLog && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl">
+                        <h3 className="text-xl font-bold text-slate-900 mb-2">Activities Log Detail</h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-xs text-slate-400 uppercase font-bold">Log Title / Content</label>
+                                <p className="text-slate-700 bg-slate-50 p-3 rounded-lg mt-1">{selectedLog.content || selectedLog.note}</p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-xs text-slate-400 uppercase font-bold">Agent</label>
+                                    <p className="text-slate-900 font-medium">{selectedLog.author}</p>
+                                </div>
+                                <div>
+                                    <label className="text-xs text-slate-400 uppercase font-bold">Type</label>
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700 mt-1">
+                                        {selectedLog.type || 'Action'}
+                                    </span>
+                                </div>
+                                <div>
+                                    <label className="text-xs text-slate-400 uppercase font-bold">Related Case</label>
+                                    <p className="text-slate-900">{selectedLog.customer} (#{selectedLog.caseId?.slice(0, 6)})</p>
+                                </div>
+                                <div>
+                                    <label className="text-xs text-slate-400 uppercase font-bold">Time</label>
+                                    <p className="text-slate-900">{new Date(selectedLog.date).toLocaleString()}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="mt-6 flex justify-end">
+                            <button
+                                onClick={() => setSelectedLog(null)}
+                                className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

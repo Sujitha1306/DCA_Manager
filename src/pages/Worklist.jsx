@@ -10,33 +10,41 @@ export default function Worklist() {
     const { user } = useAuth();
     const { cases } = useCases();
     const navigate = useNavigate();
-    const [isAiSorted, setIsAiSorted] = useState(false);
+    const [filterStatus, setFilterStatus] = useState('active'); // active, risk, paid
 
     const processedCases = useMemo(() => {
         // 1. Filter by Agent (Match Dashboard logic)
         let data = cases.filter(c => c.assignedAgentId === user?.uid);
 
-        // 2. Calculate Scores
+        // 2. Filter by Status/Tab
+        if (filterStatus === 'paid') {
+            data = data.filter(c => c.status === 'Paid');
+        } else if (filterStatus === 'risk') {
+            // High Risk = Low Recovery Score (e.g. < 50) AND Not Paid
+            data = data.filter(c => c.status !== 'Paid' && calculateRecoveryScore(c) < 50);
+        } else {
+            // Active (Default): Everything NOT Paid
+            data = data.filter(c => c.status !== 'Paid');
+        }
+
+        // 3. Calculate Scores & Transform
         data = data.map(c => ({
             ...c,
             recoveryScore: calculateRecoveryScore(c)
         }));
 
-        // 3. Sort
+        // 4. Sort
         if (isAiSorted) {
-            // Primary: Recovery Score (Desc)
-            // Secondary: Amount (Desc)
             data.sort((a, b) => {
                 if (b.recoveryScore !== a.recoveryScore) return b.recoveryScore - a.recoveryScore;
                 return b.amount - a.amount;
             });
         } else {
-            // Default: Risk Score (Asc - assuming lower risk score is better? Or just existing logic)
-            // Existing logic was a.riskScore - b.riskScore
-            data.sort((a, b) => a.riskScore - b.riskScore);
+            // Default Sort
+            data.sort((a, b) => new Date(b.lastUpdated || 0) - new Date(a.lastUpdated || 0));
         }
 
-        // 4. Transform for Display (Add Badges)
+        // 5. Transform for Display (Add Badges)
         return data.map(c => ({
             ...c,
             customerName: (
@@ -48,13 +56,12 @@ export default function Worklist() {
                         <span className="mr-2 text-lg cursor-help transition-transform hover:scale-125" title="Cold Lead: Low Probability">❄️</span>
                     )}
                     <span className={c.recoveryScore >= 80 ? "font-semibold text-slate-900" : ""}>
-                        {/* Strip existing branch info if it makes it too long, or just keep it */}
                         {c.customerName}
                     </span>
                 </div>
             )
         }));
-    }, [cases, user, isAiSorted]);
+    }, [cases, user, isAiSorted, filterStatus]);
 
     const handleRowClick = (id) => {
         navigate(`/cases/${id}`);
@@ -62,11 +69,13 @@ export default function Worklist() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">My Worklist</h1>
                     <p className="text-slate-500">
-                        {processedCases.length} active cases assigned to <span className="font-semibold text-slate-700">{user?.agencyId}</span>
+                        {filterStatus === 'active' ? 'Active cases needing attention' :
+                            filterStatus === 'risk' ? 'High Risk cases requiring immediate action' :
+                                'Completed and Paid cases'}
                     </p>
                 </div>
                 <div className="flex items-center space-x-3">
@@ -86,11 +95,34 @@ export default function Worklist() {
                 </div>
             </div>
 
+            {/* Filter Tabs */}
+            <div className="flex items-center gap-2 border-b border-slate-200">
+                <button
+                    onClick={() => setFilterStatus('active')}
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${filterStatus === 'active' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                >
+                    Active Cases
+                </button>
+                <button
+                    onClick={() => setFilterStatus('risk')}
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${filterStatus === 'risk' ? 'border-red-600 text-red-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                >
+                    High Risk
+                </button>
+                <button
+                    onClick={() => setFilterStatus('paid')}
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${filterStatus === 'paid' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                >
+                    Paid History
+                </button>
+            </div>
+
             <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                 <DataTable
                     data={processedCases}
                     onSelectionChange={() => { }}
                     onRowClick={handleRowClick}
+                    showProbability={true}
                 />
             </div>
         </div>
