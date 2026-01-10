@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Sparkles, MessageSquare, Copy, CheckCheck, AlertCircle } from 'lucide-react';
 import { API_BASE_URL } from '../api/config';
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const AiCoachWidget = ({ caseData, historyNotes }) => {
      const [isOpen, setIsOpen] = useState(false);
@@ -45,21 +46,60 @@ const AiCoachWidget = ({ caseData, historyNotes }) => {
           setError(null);
           setIsOpen(true);
 
-          // Simulate network delay for "AI" feel
-          setTimeout(() => {
-               try {
-                    // In a real app, this fetch would hit the backend. 
-                    // Since we might not have the Gemini key configured on the server or the route, 
-                    // we use the smart deterministic logic to ensure the user gets a value add.
+          try {
+               const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+
+               if (API_KEY) {
+                    // Real AI Call
+                    const genAI = new GoogleGenerativeAI(API_KEY);
+                    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+                    const historyText = historyNotes && historyNotes.length > 0
+                         ? historyNotes.map(n => n.note).join("; ")
+                         : "No prior contact history.";
+
+                    const prompt = `
+                    Act as a Debt Collection Expert.
+                    Case Context: Amount $${caseData.amount}, Days Overdue: ${caseData.daysOverdue}, Risk Score: ${caseData.riskScore || 50}.
+                    Interaction History: ${historyText}.
+
+                    Provide a JSON response with these keys:
+                    {
+                        "strategy": "Short Strategy Title (2-4 words)",
+                        "analysis": "1 concise sentence analyzing the debtor's likely state.",
+                        "script": "2 sentences polite but firm script for the agent to say."
+                    }
+                    Return ONLY JSON.
+                    `;
+
+                    const result = await model.generateContent(prompt);
+                    const response = await result.response;
+                    const text = response.text();
+
+                    // Clean Markdown
+                    const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
+                    const data = JSON.parse(jsonStr);
+
+                    setAiData(data);
+               } else {
+                    console.warn("No VITE_GEMINI_API_KEY found, falling back to deterministic logic.");
+                    // Fallback to Deterministic
+                    setTimeout(() => {
+                         const advice = getDeterministicAdvice(caseData);
+                         setAiData(advice);
+                    }, 800);
+               }
+
+          } catch (err) {
+               console.warn("AI API Error (Falling back to local logic):", err);
+               // Fallback to Deterministic
+               setTimeout(() => {
                     const advice = getDeterministicAdvice(caseData);
                     setAiData(advice);
-               } catch (err) {
-                    console.error("AI Error:", err);
-                    setError("Analysis failed. Please try again.");
-               } finally {
-                    setLoading(false);
-               }
-          }, 1500);
+               }, 1000);
+          } finally {
+               setLoading(false);
+          }
      };
 
      const copyToClipboard = () => {
@@ -77,7 +117,7 @@ const AiCoachWidget = ({ caseData, historyNotes }) => {
                     className="fixed bottom-6 right-6 flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-3 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all z-50 font-medium"
                >
                     <Sparkles className="w-5 h-5" />
-                    Ask AI Coach
+                    Ask AI Coach v2
                </button>
           );
      }
@@ -88,7 +128,7 @@ const AiCoachWidget = ({ caseData, historyNotes }) => {
                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-4 flex justify-between items-center text-white">
                     <div className="flex items-center gap-2 font-semibold">
                          <Sparkles className="w-5 h-5 text-yellow-300" />
-                         Smart Negotiation Coach
+                         Smart Negotiation Coach (Gemini)
                     </div>
                     <button
                          onClick={() => setIsOpen(false)}
@@ -103,7 +143,7 @@ const AiCoachWidget = ({ caseData, historyNotes }) => {
                     {loading ? (
                          <div className="flex flex-col items-center justify-center py-8 space-y-3 text-gray-500">
                               <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
-                              <p className="text-sm font-medium animate-pulse">Analyzing Case History...</p>
+                              <p className="text-sm font-medium animate-pulse">Consulting Gemini AI...</p>
                          </div>
                     ) : error ? (
                          <div className="flex flex-col items-center justify-center py-6 text-red-500 space-y-2">
